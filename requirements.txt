@@ -1,0 +1,10 @@
+jupyter
+nltk
+pandas
+sacrebleu
+scikit-learn
+sentencepiece
+tokenizers
+torch
+tqdm
+transformers
