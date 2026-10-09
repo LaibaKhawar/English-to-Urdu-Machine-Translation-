@@ -1,52 +1,74 @@
-# English To Urdu Machine Translation
+# English-to-Urdu Neural Machine Translation with a Transformer
 
-An educational implementation and experiment exploring **english to urdu machine translation**. This repository preserves the original work while adding the structure and documentation needed to understand, reproduce, and extend it.
+A PyTorch encoder-decoder Transformer trained from scratch on a parallel English-Urdu corpus with SentencePiece subwords, evaluated with sacreBLEU, plus experiments with BPE tokenizers, mBART-50 back-translation and an attempted mBART fine-tune.
 
-## What this project demonstrates
+**Case study:** [Read it](https://laiba-khawar-portfolio.vercel.app/work/english-urdu-translation)
 
-- A practical implementation of the core technique or system
-- Reproducible source material and experiment flow
-- Clear separation between inputs, processing, and outputs
-- A foundation for further evaluation and improvement
+## How it works
 
-## Contents
+All code is in `MT_EngtoUrdu.ipynb` (run on Google Colab with a GPU).
 
-- `MT_EngtoUrdu.ipynb`
+**Data (cell 2).** `english-corpus.txt` and `urdu-corpus.txt` are line-aligned (24,525 lines each). They are split 90/10 with `train_test_split(test_size=0.1)`.
 
-## Technology
+**Tokenization (cell 3).** Separate SentencePiece models for English and Urdu, trained on the training split only, `vocab_size=3000` each, with pad/unk/bos/eos ids 0/1/2/3.
 
-nltk, pandas, sacrebleu, scikit-learn, sentencepiece, tokenizers, torch, tqdm, transformers
+**Model (cell 5).** `torch.nn.Transformer` with:
 
-## Getting started
+- `d_model=512`, 8 attention heads, 4 encoder layers and 4 decoder layers.
+- Separate source and target embeddings scaled by `sqrt(d_model)`, and a linear output layer.
+- No positional encoding is added to the embeddings.
+
+**Training (cells 6 and 7).** Adam, learning rate 1e-4, cross-entropy ignoring padding, gradient clipping at norm 0.7, batch size 32, 10 epochs (690 batches per epoch), teacher forcing.
+
+**Decoding and evaluation (cells 8 and 9).** Greedy decoding up to 50 tokens, then sacreBLEU `corpus_bleu` on the first 50 sentences of the held-out split.
+
+**Additional experiments.**
+
+- Cell 12: Hugging Face `tokenizers` BPE models (vocab 3000) trained for both languages. They are saved but not used by the model.
+- Cell 14: back-translation with `facebook/mbart-large-50-many-to-many-mmt`: the first 100 English training lines are translated to Urdu and back to English, and the pairs are written, together with the training split, to `final_en.txt`, `final_ur.txt` and `final_data.csv` (22,171 lines).
+- Cell 17: fine-tuning mBART-50 on the combined data with `Seq2SeqTrainer`. The run failed with CUDA out of memory on the Colab GPU (the code is now commented out but the error output remains).
+
+## Results
+
+| Metric | Value | Source |
+| --- | --- | --- |
+| sacreBLEU on 50 held-out sentences | 20.41 | cell 9 |
+| Training loss, epoch 1 | 4.16 | cell 7 |
+| Training loss, epoch 10 | 0.73 | cell 7 |
+
+The notebook also prints an NLTK BLEU of 0.815 in cell 16. That number is not a valid test score: it is computed on 100 sentences sampled from `final_data.csv`, which is made of the training data plus the back-translated pairs, so the model has seen those sentences in training.
+
+## Repository contents
+
+- `MT_EngtoUrdu.ipynb`: the full pipeline.
+- `english-corpus.txt`, `urdu-corpus.txt`: aligned parallel corpus.
+- `requirements.txt`: jupyter, nltk, pandas, sacrebleu, scikit-learn, sentencepiece, tokenizers, torch, tqdm, transformers.
+
+## Running it
+
+The notebook was run on Google Colab with a GPU (Python 3.11 according to its outputs). A GPU is strongly recommended; each training epoch took about 35 seconds there.
 
 ```bash
 git clone https://github.com/LaibaKhawar/English-to-Urdu-Machine-Translation-.git
 cd English-to-Urdu-Machine-Translation-
-```
-
-Create an isolated Python environment and install the dependencies:
-
-```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+jupyter notebook MT_EngtoUrdu.ipynb
 ```
 
-Run the project:
+The corpus files are read from the working directory. The notebook writes `train_en.txt`, `train_ur.txt`, the SentencePiece models (`en.model`, `ur.model`), `bpe_en.json`, `bpe_ur.json`, `final_en.txt`, `final_ur.txt` and `final_data.csv` there. The back-translation cell downloads mBART-50 (several GB). `datasets` is used by the commented-out fine-tuning cell but is not in `requirements.txt`.
 
-```bash
-jupyter notebook
-```
+## Known limitations
 
-## Reproducibility notes
-
-Some experiments require datasets or model weights that are not committed because of size or licensing restrictions. Paths should be configured locally before execution. Randomized experiments may produce slightly different metrics across environments.
-
-## Future improvements
-
-- Add automated tests for reusable components
-- Expand evaluation with additional datasets and metrics
-- Package the core implementation behind a command-line or web interface
+- **Causal mask on the encoder.** `forward` passes `generate_square_subsequent_mask` as `src_mask`, so each source token can only attend to earlier source tokens. The encoder should see the whole sentence. Greedy decoding in cell 8 calls the Transformer without that mask, so training and inference also differ.
+- **No positional encoding.** The model gets no explicit information about token positions.
+- **Embedding size mismatch.** The model is built with vocabularies of 8000 although the SentencePiece models have 3000 pieces; the extra rows are unused.
+- **Unseeded split.** `train_test_split` has no `random_state`, so the held-out set and the BLEU score change between runs.
+- **Small evaluation.** BLEU is computed on only 50 sentences.
+- **Back-translation is barely used.** Only 100 lines were back-translated, and the Transformer was not retrained on the augmented data.
+- **mBART fine-tuning did not run** (CUDA out of memory).
+- No padding masks are passed to the Transformer, so padded positions are attended to.
 
 ## Author
 
