@@ -2,7 +2,7 @@
 
 A PyTorch encoder-decoder Transformer trained from scratch on a parallel English-Urdu corpus with SentencePiece subwords, evaluated with sacreBLEU, plus experiments with BPE tokenizers, mBART-50 back-translation and an attempted mBART fine-tune.
 
-**Case study:** [Read it](https://laiba-khawar-portfolio.vercel.app/work/english-urdu-translation)
+**Case study:** [Read it](https://www.laibakhawar.com/work/english-urdu-translation)
 
 ## How it works
 
@@ -72,4 +72,4 @@ The corpus files are read from the working directory. The notebook writes `train
 
 ## Author
 
-[Laiba Khawar](https://github.com/LaibaKhawar) · [LinkedIn](https://www.linkedin.com/in/laiba-k-00b2b1249/)
+[Laiba Khawar](https://github.com/LaibaKhawar) · [LinkedIn](https://www.linkedin.com/in/laibakhawar/)
